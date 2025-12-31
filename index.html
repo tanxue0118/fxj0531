@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>元旦快乐</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', 'Microsoft YaHei', sans-serif;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 照片区域 */
+        .photo-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        /* 照片样式 */
+        .memory-photo {
+            position: absolute;
+            width: 280px;
+            height: 190px;
+            opacity: 0;
+            transform: scale(0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 
+                0 0 25px rgba(255, 200, 0, 0.7),
+                inset 0 0 15px rgba(255, 255, 255, 0.2);
+            transition: opacity 1.2s ease, transform 1.2s ease;
+            z-index: 1;
+        }
+        
+        .memory-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        
+        /* 元旦快乐文字 */
+        .new-year-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 5rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 30;
+            opacity: 0;
+            transition: all 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+        
+        .new-year-text.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .text-glow {
+            color: #ffcc00;
+            text-shadow: 
+                0 0 10px #ff9900,
+                0 0 20px #ff9900,
+                0 0 30px #ff9900,
+                0 0 40px #ff3300,
+                0 0 70px #ff3300,
+                0 0 80px #ff3300,
+                0 0 100px #ff3300,
+                0 0 150px #ff3300;
+        }
+        
+        .subtitle {
+            font-size: 2rem;
+            margin-top: 20px;
+            color: #aaddff;
+            text-shadow: 0 0 15px rgba(100, 200, 255, 0.9);
+        }
+        
+        /* 烟花画布 */
+        #fireworksCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            pointer-events: none;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .memory-photo {
+                width: 220px;
+                height: 150px;
+            }
+            
+            .new-year-text {
+                font-size: 3.5rem;
+            }
+            
+            .subtitle {
+                font-size: 1.5rem;
+            }
+        }
+        
+        @media (max-width: 550px) {
+            .memory-photo {
+                width: 180px;
+                height: 120px;
+            }
+            
+            .new-year-text {
+                font-size: 2.5rem;
+            }
+            
+            .subtitle {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 照片区域 -->
+        <div class="photo-area" id="photoArea"></div>
+        
+        <!-- 元旦快乐文字 -->
+        <div class="new-year-text">
+            <div class="text-glow">宝宝元旦快乐！</div>
+            <div class="subtitle">Happy New Year</div>
+        </div>
+        
+        <!-- 烟花画布 -->
+        <canvas id="fireworksCanvas"></canvas>
+    </div>
+
+    <script>
+        // ========== 配置部分 ==========
+        // 方法1：直接在数组中添加文件名
+        const localPhotoFiles = [
+            'photo1.jpg', 'photo2.jpg', 'photo3.jpg', 'photo4.jpg', 'photo5.jpg',
+            'photo6.jpg', 'photo7.jpg', 'photo8.jpg', 'photo9.jpg', 'photo10.jpg',
+            // 在这里添加更多照片文件名
+            'photo11.jpg', 'photo12.jpg', 'photo13.jpg', 'photo14.jpg', 'photo15.jpg'
+        ];
+        
+        // 方法2：使用数字范围自动生成文件名（推荐，最简单）
+        // 如果你的照片按顺序命名，如 photo1.jpg, photo2.jpg, ... photo20.jpg
+        // 使用这个函数自动生成文件名数组
+        function generatePhotoFiles(start, end, prefix = 'photo', extension = '.jpg') {
+            const files = [];
+            for (let i = start; i <= end; i++) {
+                files.push(`${prefix}${i}${extension}`);
+            }
+            return files;
+        }
+        
+        // 示例：生成从photo1.jpg到photo20.jpg的文件名数组
+        // const localPhotoFiles = generatePhotoFiles(1, 20, 'photo', '.jpg');
+        
+        // 方法3：使用文件模式匹配（需要服务器支持）
+        // 这种方法需要服务器端脚本支持，不适合纯静态HTML
+        
+        // 动画时间配置 (毫秒)
+        const config = {
+            // 单张照片动画时间
+            photoFlyInTime: 1000,
+            photoStayTime: 1400,
+            photoFadeOutTime: 1100,
+            
+            // 照片序列控制
+            photoInterval: 700,
+            
+            // 显示多少张照片
+            // 方法A：显示所有照片
+            totalPhotosToShow: localPhotoFiles.length,
+            
+            // 方法B：固定显示数量（即使有更多照片也只显示指定数量）
+            // totalPhotosToShow: 15,
+            
+            // 整体控制
+            sequenceCompleteDelay: 1000
+        };
+        
+        // ========== 全局变量 ==========
+        let canvas, ctx;
+        let particles = [];
+        let animationId;
+        let photoSequenceActive = true;
+        let currentPhotoIndex = 0;
+        let activePhotos = [];
+        
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化烟花画布
+            canvas = document.getElementById('fireworksCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 开始照片序列
+            startPhotoSequence();
+            
+            // 点击重新开始
+            canvas.addEventListener('click', restartSequence);
+            
+            // 显示照片数量信息
+            console.log(`已配置 ${localPhotoFiles.length} 张照片`);
+            console.log(`将显示 ${config.totalPhotosToShow} 张照片`);
+        });
+        
+        // ========== 照片序列系统 ==========
+        function startPhotoSequence() {
+            photoSequenceActive = true;
+            currentPhotoIndex = 0;
+            activePhotos = [];
+            
+            // 清空现有照片
+            document.getElementById('photoArea').innerHTML = '';
+            
+            // 开始播放照片
+            playNextPhoto();
+            
+            // 计算总时间
+            const totalTime = calculateTotalSequenceTime();
+            
+            setTimeout(() => {
+                photoSequenceActive = false;
+                fadeOutAllPhotos();
+                
+                setTimeout(() => {
+                    startFireworks();
+                    showNewYearText();
+                }, config.photoFadeOutTime + 500);
+            }, totalTime);
+        }
+        
+        // 计算总序列时间
+        function calculateTotalSequenceTime() {
+            return config.photoInterval * config.totalPhotosToShow + 
+                   config.photoFadeOutTime + 
+                   config.sequenceCompleteDelay;
+        }
+        
+        function restartSequence() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                particles = [];
+            }
+            
+            document.querySelector('.new-year-text').classList.remove('show');
+            
+            setTimeout(() => {
+                startPhotoSequence();
+            }, 300);
+        }
+        
+        function playNextPhoto() {
+            if (!photoSequenceActive || currentPhotoIndex >= config.totalPhotosToShow) {
+                return;
+            }
+            
+            createPhoto(currentPhotoIndex);
+            currentPhotoIndex++;
+            
+            if (photoSequenceActive) {
+                setTimeout(playNextPhoto, config.photoInterval);
+            }
+        }
+        
+        function createPhoto(index) {
+            const photoArea = document.getElementById('photoArea');
+            const photoDiv = document.createElement('div');
+            photoDiv.className = 'memory-photo';
+            photoDiv.dataset.index = index;
+            
+            // 获取照片文件名（循环使用照片数组）
+            const photoFile = localPhotoFiles[index % localPhotoFiles.length];
+            
+            // 创建图片
+            const img = document.createElement('img');
+            img.src = photoFile;
+            img.alt = `元旦照片 ${index + 1}`;
+            img.onerror = function() {
+                console.error(`无法加载图片: ${photoFile}`);
+                // 显示占位图片
+                this.src = getPlaceholderImage(index);
+            };
+            
+            photoDiv.appendChild(img);
+            photoArea.appendChild(photoDiv);
+            
+            // 设置随机位置
+            setRandomPosition(photoDiv);
+            
+            // 添加到活动照片数组
+            activePhotos.push({
+                element: photoDiv,
+                index: index,
+                state: 'flyingIn',
+                finalX: parseInt(photoDiv.style.left),
+                finalY: parseInt(photoDiv.style.top)
+            });
+            
+            // 开始照片动画
+            setTimeout(() => {
+                animatePhoto(photoDiv, index);
+            }, 10);
+        }
+        
+        function setRandomPosition(photoElement) {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const photoWidth = 280;
+            const photoHeight = 190;
+            
+            // 计算可显示区域 (屏幕中央70%的区域)
+            const areaWidth = screenWidth * 0.7;
+            const areaHeight = screenHeight * 0.7;
+            const startX = (screenWidth - areaWidth) / 2;
+            const startY = (screenHeight - areaHeight) / 2;
+            
+            // 随机位置
+            const randomX = startX + Math.random() * (areaWidth - photoWidth);
+            const randomY = startY + Math.random() * (areaHeight - photoHeight);
+            
+            // 设置位置
+            photoElement.style.left = `${randomX}px`;
+            photoElement.style.top = `${randomY}px`;
+            photoElement.style.transform = 'scale(0.1)';
+            photoElement.style.opacity = '0';
+        }
+        
+        function getPlaceholderImage(index) {
+            // 简单的SVG占位图，包含照片编号
+            const color = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7'][index % 5];
+            return `data:image/svg+xml;base64,${btoa(`
+                <svg width="280" height="190" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="100%" height="100%" fill="${color}"/>
+                    <text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" 
+                          text-anchor="middle" dy=".3em">照片 ${index + 1}</text>
+                </svg>
+            `)}`;
+        }
+        
+        function animatePhoto(photoElement, index) {
+            // 阶段1: 飞入
+            photoElement.style.opacity = '1';
+            photoElement.style.transform = 'scale(1)';
+            
+            const photoObj = activePhotos.find(p => p.element === photoElement);
+            if (photoObj) photoObj.state = 'staying';
+            
+            // 阶段2: 渐隐
+            setTimeout(() => {
+                if (photoObj) photoObj.state = 'fadingOut';
+                
+                photoElement.style.opacity = '0';
+                photoElement.style.transform = 'scale(0.95)';
+                
+                setTimeout(() => {
+                    if (photoElement.parentNode) {
+                        photoElement.parentNode.removeChild(photoElement);
+                        
+                        const idx = activePhotos.findIndex(p => p.element === photoElement);
+                        if (idx !== -1) activePhotos.splice(idx, 1);
+                    }
+                }, config.photoFadeOutTime);
+                
+            }, config.photoStayTime);
+        }
+        
+        function fadeOutAllPhotos() {
+            activePhotos.forEach(photoObj => {
+                if (photoObj.element.parentNode) {
+                    photoObj.element.style.transition = `opacity ${config.photoFadeOutTime}ms ease, transform ${config.photoFadeOutTime}ms ease`;
+                    photoObj.element.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        if (photoObj.element.parentNode) {
+                            photoObj.element.parentNode.removeChild(photoObj.element);
+                        }
+                    }, config.photoFadeOutTime);
+                }
+            });
+            activePhotos = [];
+        }
+        
+        // ========== 烟花系统 ==========
+        function startFireworks() {
+            particles = [];
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => createFireworkBurst(), i * 400);
+            }
+            
+            animateFireworks();
+            
+            const fireworksInterval = setInterval(() => {
+                if (particles.length < 1000) {
+                    createFireworkBurst();
+                }
+            }, 1000);
+            
+            setTimeout(() => {
+                clearInterval(fireworksInterval);
+            }, 60000);
+        }
+        
+        function animateFireworks() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                p.vx *= 0.98;
+                p.vy *= 0.98;
+                p.life -= p.decay;
+                
+                const lifeRatio = Math.max(0, p.life / p.startLife);
+                const alpha = lifeRatio * 0.9;
+                
+                ctx.beginPath();
+                const radius = p.size * (0.5 + lifeRatio * 0.5);
+                ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                
+                ctx.fillStyle = `rgba(${p.r}, ${p.g}, ${p.b}, ${alpha})`;
+                ctx.fill();
+                
+                ctx.shadowBlur = 15 * lifeRatio;
+                ctx.shadowColor = `rgb(${p.r}, ${p.g}, ${p.b})`;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            
+            animationId = requestAnimationFrame(animateFireworks);
+        }
+        
+        function createFireworkBurst() {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height * 0.5 + canvas.height * 0.1;
+            
+            const colors = [
+                {r: 255, g: 50, b: 50},
+                {r: 255, g: 150, b: 50},
+                {r: 255, g: 255, b: 50},
+                {r: 50, g: 255, b: 50},
+                {r: 50, g: 150, b: 255},
+                {r: 200, g: 50, b: 255},
+                {r: 255, g: 50, b: 200}
+            ];
+            
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            const particleCount = Math.floor(Math.random() * 80) + 60;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                
+                particles.push({
+                    x, y, vx, vy,
+                    size: Math.random() * 2.5 + 0.8,
+                    life: 1.2 + Math.random() * 0.8,
+                    startLife: 1.2 + Math.random() * 0.8,
+                    decay: 0.01 + Math.random() * 0.02,
+                    gravity: 0.05,
+                    r: color.r, g: color.g, b: color.b
+                });
+            }
+            
+            const smallParticleCount = Math.floor(Math.random() * 40) + 30;
+            for (let i = 0; i < smallParticleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 1.5 + 0.5;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                
+                particles.push({
+                    x, y, vx, vy,
+                    size: Math.random() * 1.5 + 0.5,
+                    life: 0.8 + Math.random() * 0.5,
+                    startLife: 0.8 + Math.random() * 0.5,
+                    decay: 0.015 + Math.random() * 0.02,
+                    gravity: 0.03,
+                    r: 255, g: 255, b: 255
+                });
+            }
+        }
+        
+        // ========== 工具函数 ==========
+        function showNewYearText() {
+            const textElement = document.querySelector('.new-year-text');
+            setTimeout(() => {
+                textElement.classList.add('show');
+            }, 500);
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+    </script>
+</body>
+</html>
